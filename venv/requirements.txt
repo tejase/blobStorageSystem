@@ -1,0 +1,2 @@
+pip install python-decouple
+python-decouple==3.3
