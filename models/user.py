@@ -1,7 +1,10 @@
+from base64 import encode
+from codecs import EncodedFile
 from dataclasses import Field
 from email.policy import default
 from typing_extensions import Required
 from pydantic import BaseModel, Field, EmailStr, validator
+
 
 class User(BaseModel):
     name: str
@@ -44,3 +47,24 @@ class UserLoginSchema(BaseModel):
             }
         }
 
+class FileSchema(BaseModel):
+    filename: str = Field(default=None)
+
+class FileShareSchema(BaseModel):
+    destinationEmail: EmailStr = Field(Required = True)    
+    fileID: str = Field(Required = True)
+    role: str = Field(Required = True)
+
+    @validator('role')
+    def validRoleCheck(cls, v):
+        assert v in ["Owner","Editor","Viewer"], 'Available roles are Owner, Editor and Viewer'
+        return v
+
+class FileRenameSchema(BaseModel):
+    newFileName: str = Field(Required = True)
+
+    @validator('newFileName')
+    def validateNewFileName(cls, v):
+        assert len(v) < 25, 'File Name is too long'
+        assert v.isalnum(), 'File can only contain alphanumeric characters'
+        return v
