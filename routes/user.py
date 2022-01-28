@@ -154,7 +154,7 @@ async def shareFile(data: FileShareSchema = Body(default=None), token: str = Dep
     try:
         if(data.destinationEmail != decodeJWT(token)["userID"] and getRole(decodeJWT(token)["userID"], data.fileID) in ["Owner"]):
             # conn.access.insert_one({"email": data.destinationEmail, "fileID":ObjectId(data.fileID) , "role": data.role})
-            conn.access.update( {"email": data.destinationEmail, "fileID":ObjectId(data.fileID)}, {"$set":{"role":"Editor"}} ,upsert=True)
+            conn.access.update( {"email": data.destinationEmail, "fileID":ObjectId(data.fileID)}, {"$set":{"role":data.role}} ,upsert=True)
             return {"msg":"File shared successfullly"}
         else:
             raise HTTPException(status_code=403, detail="Not enough permission to share this file")
