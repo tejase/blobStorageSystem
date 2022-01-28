@@ -1,6 +1,6 @@
 from base64 import decode
 from opcode import opname
-from fastapi import APIRouter, Body, HTTPException, Depends, UploadFile, File, Request
+from fastapi import FastAPI, APIRouter, Body, HTTPException, Depends, UploadFile, File, Request
 from models.user import User,UserSchema,UserLoginSchema, FileShareSchema, FileRenameSchema
 from config.db import conn 
 from schemas.user import serializeDict, serializeList
@@ -12,8 +12,23 @@ import bcrypt
 import shutil
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket, AsyncIOMotorClient
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
 user = APIRouter() 
 
+#cross origin reference
+origins = [
+    'http://localhost:3000/'
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = origins,
+    allow_credentials = True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 #user signup
 @user.post("/signup",tags=["user"])
 async def user_signup(user: UserSchema = Body(default=None)):
@@ -59,6 +74,7 @@ def getRole(email, fileID):
         return accessQuery[0]["role"]
     except Exception as e:
         print("fdssdf",e)
+        raise HTTPException(status_code=404, detail = "File not found")
 
 
 
@@ -99,9 +115,23 @@ async def getFile(FID, token: str = Depends(jwtBearer())):
         client = AsyncIOMotorClient('localhost', 27017)
         fs = AsyncIOMotorGridFSBucket(client.local)
         file = await fs.open_download_stream(ObjectId(FID))
-        return StreamingResponse(file, media_type = file.metadata["contentType"])
+        return StreamingResponse(file,headers={"Content-Disposition": file.filename}, media_type = file.metadata["contentType"])
     else:
         raise HTTPException(status_code=403, detail="Not enough role to access this File")
+
+#Get file datails with file id
+@user.get("/file/{FID}/details", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+async def getFileDetails(FID, token: str = Depends(jwtBearer())):
+    if(getRole(decodeJWT(token)["userID"], FID) in ["Owner","Editor","Viewer"]):
+        fileQuery = conn.local.fs.files.find_one( { "_id" : ObjectId(FID)})
+        # print(fileQuery)
+        return serializeDict(fileQuery)
+    return {}
+
+#Get Role of a user corresponding to a file
+@user.get("/file/{FID}/role", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+async def getFileRole(FID, token: str = Depends(jwtBearer())):
+    return {"role":getRole(decodeJWT(token)["userID"], FID)}
 
 #Get all files corresponding to an user
 @user.get("/files", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
@@ -120,12 +150,14 @@ async def getAllFiles(token: str = Depends(jwtBearer())):
 @user.post("/file/share", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
 async def shareFile(data: FileShareSchema = Body(default=None), token: str = Depends(jwtBearer())):
     try:
-        if(getRole(decodeJWT(token)["userID"], data.fileID) in ["Owner"]):
-            conn.local.access.insert_one({"email": data.destinationEmail, "fileID":ObjectId(data.fileID) , "role": data.role})
+        if(data.destinationEmail != decodeJWT(token)["userID"] and getRole(decodeJWT(token)["userID"], data.fileID) in ["Owner"]):
+            # conn.local.access.insert_one({"email": data.destinationEmail, "fileID":ObjectId(data.fileID) , "role": data.role})
+            conn.local.access.update( {"email": data.destinationEmail, "fileID":ObjectId(data.fileID)}, {"$set":{"role":"Editor"}} ,upsert=True)
             return {"msg":"File shared successfullly"}
         else:
             raise HTTPException(status_code=403, detail="Not enough permission to share this file")
     except Exception as e:
+        print("Exception in share file: ",e)
         raise HTTPException(status_code=500, detail="Failed to share the file")
     
 
