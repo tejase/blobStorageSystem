@@ -13,6 +13,7 @@ import shutil
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket, AsyncIOMotorClient
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from decouple import config
 
 app = FastAPI()
 user = APIRouter() 
@@ -32,11 +33,12 @@ app.add_middleware(
 #user signup
 @user.post("/signup",tags=["user"])
 async def user_signup(user: UserSchema = Body(default=None)):
-    print(user)
+    print("ASSSJHG",user)
     if check_user_signup(user):
         user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
         # print(user)
-        conn.local.user.insert_one(dict(user))
+        conn["user"].insert_one(dict(user))
+        # print(conn["user"].find())
         return signJWT(user.email)
     else:
         raise HTTPException(status_code=409, detail="Email already exist")
@@ -52,14 +54,14 @@ async def user_login(user: UserLoginSchema = Body(default = None)):
 
 #validating functions for login and signup
 def check_user_signup(data: UserSchema):
-    signupQuery = serializeList(conn.local.user.find({"email":data.email}))
+    signupQuery = serializeList(conn.user.find({"email":data.email}))
     if(len(signupQuery) == 0):
         return True
     else:
         False
 
 def check_user_login(data: UserLoginSchema):
-    loginQuery = serializeList(conn.local.user.find({"email": data.email}))
+    loginQuery = serializeList(conn.user.find({"email": data.email}))
     print(loginQuery[0]["password"], bcrypt.hashpw(data.password.encode("utf-8"), bcrypt.gensalt()))
     if len(loginQuery) == 1 and loginQuery[0]["email"] == data.email and bcrypt.checkpw(data.password.encode('utf-8'), loginQuery[0]["password"]) :
         return True
@@ -69,7 +71,7 @@ def check_user_login(data: UserLoginSchema):
 #RoleAssert function
 def getRole(email, fileID):
     try:
-        accessQuery = conn.local.access.find({"email":email,"fileID": ObjectId(fileID)})
+        accessQuery = conn.access.find({"email":email,"fileID": ObjectId(fileID)})
         print(accessQuery[0]["role"])
         return accessQuery[0]["role"]
     except Exception as e:
@@ -87,16 +89,16 @@ def getRole(email, fileID):
 #         encoded = Binary(buffer.read())
 #         print(encoded)
         
-#         _id = conn.local.files.insert_one({"filename": file.filename, "file": encoded, "description": "test" })
+#         _id = conn.files.insert_one({"filename": file.filename, "file": encoded, "description": "test" })
 #         print("uploaded user detail: ", decodeJWT(token)["userID"])
-#         conn.local.access.insert_one({"email": decodeJWT(token)["userID"], "fileID": _id.inserted_id , "role": "Owner"})
+#         conn.access.insert_one({"email": decodeJWT(token)["userID"], "fileID": _id.inserted_id , "role": "Owner"})
 #     return {"file_name":file.filename}
 
 #Upload File
 @user.post("/file/upload", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
 async def uploadFile(token: str = Depends(jwtBearer()), file: UploadFile = File(...)):
-    client = AsyncIOMotorClient('localhost', 27017)
-    fs = AsyncIOMotorGridFSBucket(client.local)
+    client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
+    fs = AsyncIOMotorGridFSBucket(client.database)
     print(fs)
     print(file.filename, file.file, file, file.content_type)
     file_id = await fs.upload_from_stream(
@@ -104,7 +106,7 @@ async def uploadFile(token: str = Depends(jwtBearer()), file: UploadFile = File(
         file.file,
         # chunk_size_bytes=255*1024*1024, #default 255kB
         metadata={"contentType": file.content_type})
-    conn.local.access.insert_one({"email": decodeJWT(token)["userID"], "fileID": file_id , "role": "Owner"})
+    conn.access.insert_one({"email": decodeJWT(token)["userID"], "fileID": file_id , "role": "Owner"})
     return {"file_name":file.filename, "file_ID":str(file_id)}
 
 #Get a file with File_id
@@ -112,8 +114,8 @@ async def uploadFile(token: str = Depends(jwtBearer()), file: UploadFile = File(
 async def getFile(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner","Editor","Viewer"]):
 
-        client = AsyncIOMotorClient('localhost', 27017)
-        fs = AsyncIOMotorGridFSBucket(client.local)
+        client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
+        fs = AsyncIOMotorGridFSBucket(client.database)
         file = await fs.open_download_stream(ObjectId(FID))
         return StreamingResponse(file,headers={"Content-Disposition": file.filename}, media_type = file.metadata["contentType"])
     else:
@@ -123,7 +125,7 @@ async def getFile(FID, token: str = Depends(jwtBearer())):
 @user.get("/file/{FID}/details", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
 async def getFileDetails(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner","Editor","Viewer"]):
-        fileQuery = conn.local.fs.files.find_one( { "_id" : ObjectId(FID)})
+        fileQuery = conn.fs.files.find_one( { "_id" : ObjectId(FID)})
         # print(fileQuery)
         return serializeDict(fileQuery)
     return {}
@@ -137,12 +139,12 @@ async def getFileRole(FID, token: str = Depends(jwtBearer())):
 @user.get("/files", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
 async def getAllFiles(token: str = Depends(jwtBearer())):
     #list of fileIDs corresponding to the user
-    fileIDListQuery = conn.local.access.find({"email": decodeJWT(token)["userID"]})
+    fileIDListQuery = conn.access.find({"email": decodeJWT(token)["userID"]})
     fileIDList = []
     fileIDListQuery = serializeList(fileIDListQuery)
     for each in fileIDListQuery:
         fileIDList.append(each["fileID"])
-    fileQuery = conn.local.fs.files.find( { "_id" : {'$in' :fileIDList}})
+    fileQuery = conn.fs.files.find( { "_id" : {'$in' :fileIDList}})
     print(fileIDList)
     return(serializeList(fileQuery))
 
@@ -151,8 +153,8 @@ async def getAllFiles(token: str = Depends(jwtBearer())):
 async def shareFile(data: FileShareSchema = Body(default=None), token: str = Depends(jwtBearer())):
     try:
         if(data.destinationEmail != decodeJWT(token)["userID"] and getRole(decodeJWT(token)["userID"], data.fileID) in ["Owner"]):
-            # conn.local.access.insert_one({"email": data.destinationEmail, "fileID":ObjectId(data.fileID) , "role": data.role})
-            conn.local.access.update( {"email": data.destinationEmail, "fileID":ObjectId(data.fileID)}, {"$set":{"role":"Editor"}} ,upsert=True)
+            # conn.access.insert_one({"email": data.destinationEmail, "fileID":ObjectId(data.fileID) , "role": data.role})
+            conn.access.update( {"email": data.destinationEmail, "fileID":ObjectId(data.fileID)}, {"$set":{"role":"Editor"}} ,upsert=True)
             return {"msg":"File shared successfullly"}
         else:
             raise HTTPException(status_code=403, detail="Not enough permission to share this file")
@@ -165,8 +167,8 @@ async def shareFile(data: FileShareSchema = Body(default=None), token: str = Dep
 @user.post("/file/{FID}/rename", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
 async def renameFile(FID, data: FileRenameSchema = Body(default=None), token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner","Editor"]):
-        client = AsyncIOMotorClient('localhost', 27017)
-        fs = AsyncIOMotorGridFSBucket(client.local)
+        client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
+        fs = AsyncIOMotorGridFSBucket(client.database)
         try:
             await fs.rename(ObjectId(FID),data.newFileName)
             return{"msg":"Renamed successfully"}
@@ -180,11 +182,11 @@ async def renameFile(FID, data: FileRenameSchema = Body(default=None), token: st
 @user.delete("/file/{FID}", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
 async def deleteFile(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner","Editor"]):
-        client = AsyncIOMotorClient('localhost', 27017)
-        fs = AsyncIOMotorGridFSBucket(client.local)
+        client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
+        fs = AsyncIOMotorGridFSBucket(client.database)
         try:
             await fs.delete(ObjectId(FID))
-            conn.local.access.delete_many({"fileID": ObjectId(FID)})
+            conn.access.delete_many({"fileID": ObjectId(FID)})
             return{"msg":"Deleted File successfully"}
         except Exception as e:
             print(e)
@@ -208,19 +210,19 @@ async def find_all_users(token: str = Depends(jwtBearer())):
     print("get all usres: ", decodeJWT(token))
     
     # decode_token = jwt.decode(jwtBearer().credentials, JWT_SECRET, algorithms = [JWT_ALGORITHM])
-    return serializeList(conn.local.user.find())
+    return serializeList(conn.user.find())
 
 @user.get('/{id}')
 async def find_one_user(id):
-    return serializeDict(conn.local.user.find_one({"_id":ObjectId(id)}))
+    return serializeDict(conn.user.find_one({"_id":ObjectId(id)}))
 
 @user.put('/{id}')
 async def update_user(id,user: User):
-    conn.local.user.find_one_and_update({"_id":ObjectId(id)},{
+    conn.user.find_one_and_update({"_id":ObjectId(id)},{
         "$set":dict(user)
     })
-    return serializeDict(conn.local.user.find_one({"_id":ObjectId(id)}))
+    return serializeDict(conn.user.find_one({"_id":ObjectId(id)}))
 
 @user.delete("/{id}", dependencies=[Depends(jwtBearer())] )
 async def delete_user(id,user: User):
-    return serializeDict(conn.local.user.find_one_and_delete({"_id":ObjectId(id)}))
+    return serializeDict(conn.user.find_one_and_delete({"_id":ObjectId(id)}))
