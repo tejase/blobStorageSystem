@@ -3,7 +3,7 @@ from opcode import opname
 from fastapi import FastAPI, APIRouter, Body, HTTPException, Depends, UploadFile, File, Request
 from models.user import User,UserSchema,UserLoginSchema, FileShareSchema, FileRenameSchema
 from config.db import conn 
-from schemas.user import serializeDict, serializeList
+from schemas.user import serializeDict, serializeList, usersEntity
 from bson import ObjectId
 from bson.binary import Binary
 from app.auth.jwt_handler import signJWT, decodeJWT 
@@ -210,7 +210,7 @@ async def find_all_users(token: str = Depends(jwtBearer())):
     print("get all usres: ", decodeJWT(token))
     
     # decode_token = jwt.decode(jwtBearer().credentials, JWT_SECRET, algorithms = [JWT_ALGORITHM])
-    return serializeList(conn.user.find())
+    return usersEntity(conn.user.find())
 
 @user.get('/{id}')
 async def find_one_user(id):
