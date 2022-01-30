@@ -33,7 +33,7 @@ app.add_middleware(
 # user signup
 
 
-@user.post("/signup", tags=["user"])
+@user.post("/signup", tags=["user"], name="User Signup", description="Registers a user with the given credentials and returns an authenticaion token")
 async def user_signup(user: UserSchema = Body(default=None)):
     print("ASSSJHG", user)
     if check_user_signup(user):
@@ -49,7 +49,7 @@ async def user_signup(user: UserSchema = Body(default=None)):
 # user login
 
 
-@user.post("/login", tags=["user"])
+@user.post("/login", tags=["user"], name="User Login", description="Logs in the user, and returns an authentication token")
 async def user_login(user: UserLoginSchema = Body(default=None)):
     if check_user_login(user):
         return signJWT(user.email)
@@ -73,7 +73,9 @@ def check_user_login(data: UserLoginSchema):
     if len(loginQuery) == 1 and loginQuery[0]["email"] == data.email and bcrypt.checkpw(data.password.encode('utf-8'), loginQuery[0]["password"]):
         return True
     else:
-        return False
+        print("addsa")
+        raise HTTPException(
+            status_code=401, detail="Invalid login credentials")
 
 # RoleAssert function
 
@@ -102,7 +104,7 @@ def getAccessList(fileID):
 # Upload File
 
 
-@user.post("/file/upload", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
+@user.post("/file/upload", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Upload a file", description="Uploads file corresponding to authenticated user and returns fileID")
 async def uploadFile(token: str = Depends(jwtBearer()), file: UploadFile = File(...)):
     client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
     fs = AsyncIOMotorGridFSBucket(client.database)
@@ -120,7 +122,7 @@ async def uploadFile(token: str = Depends(jwtBearer()), file: UploadFile = File(
 # Get a file with File_id
 
 
-@user.get("/file/{FID}", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
+@user.get("/file/{FID}", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Get a file", description="Gets file as streaming response, with file_id")
 async def getFile(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner", "Editor", "Viewer"]):
 
@@ -135,7 +137,7 @@ async def getFile(FID, token: str = Depends(jwtBearer())):
 # Get file datails with file id
 
 
-@user.get("/file/{FID}/details", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+@user.get("/file/{FID}/details", dependencies=[Depends(jwtBearer())], tags={"File Managment"}, name="Get details of a file", description="Gets metadata of a file from file_id")
 async def getFileDetails(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner", "Editor", "Viewer"]):
         fileQuery = conn.fs.files.find_one({"_id": ObjectId(FID)})
@@ -146,14 +148,14 @@ async def getFileDetails(FID, token: str = Depends(jwtBearer())):
 # Get Role of a user corresponding to a file
 
 
-@user.get("/file/{FID}/role", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+@user.get("/file/{FID}/role", dependencies=[Depends(jwtBearer())], tags={"File Managment"}, name="Get Role", description="Gets the role of the user corresponding to a file")
 async def getFileRole(FID, token: str = Depends(jwtBearer())):
     return {"role": getRole(decodeJWT(token)["userID"], FID)}
 
 # Get all files corresponding to an user
 
 
-@user.get("/files", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+@user.get("/files", dependencies=[Depends(jwtBearer())], tags={"File Managment"}, name="Get all files", description="Returns all the files the user has access to")
 async def getAllFiles(token: str = Depends(jwtBearer())):
     # list of fileIDs corresponding to the user
     fileIDListQuery = conn.access.find({"email": decodeJWT(token)["userID"]})
@@ -168,7 +170,7 @@ async def getAllFiles(token: str = Depends(jwtBearer())):
 # Share file
 
 
-@user.post("/file/share", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
+@user.post("/file/share", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Share file/ Change Role", description="This endpoint can be used to share a file to any user with role, and also to update user's role of a file which has already been shared. Can be used only by owner of a file. Available roles for a file are Owner, Editor, Viewer")
 async def shareFile(data: FileShareSchema = Body(default=None), token: str = Depends(jwtBearer())):
     try:
         if(data.destinationEmail != decodeJWT(token)["userID"] and getRole(decodeJWT(token)["userID"], data.fileID) in ["Owner"]):
@@ -186,7 +188,7 @@ async def shareFile(data: FileShareSchema = Body(default=None), token: str = Dep
 # get users sharing a file
 
 
-@user.get("/file/{FID}/users", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+@user.get("/file/{FID}/users", dependencies=[Depends(jwtBearer())], tags={"File Managment"}, name="Get users having access to a file", description="Returns the list of users having access to a file along with their roles")
 async def getUsersSharingFile(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID)):
         return (getAccessList(FID))
@@ -194,14 +196,14 @@ async def getUsersSharingFile(FID, token: str = Depends(jwtBearer())):
 # Remove access of a file
 
 
-@user.delete("/file/{FID}/access", dependencies=[Depends(jwtBearer())], tags={"File Managment"})
+@user.delete("/file/{FID}/access", dependencies=[Depends(jwtBearer())], tags={"File Managment"}, name="Remove file access", description="Removes the access to file from a user. Can be only performed by owner of a file")
 async def deleteAccess(FID, data: AccessDeleteSchema = Body(default=None), token: str = Depends(jwtBearer())):
     try:
         if(data.email != decodeJWT(token)["userID"] and getRole(decodeJWT(token)["userID"], FID) in ["Owner"]):
             try:
                 conn.access.delete_one(
                     {"fileID": ObjectId(FID), "email": data.email})
-                return {"msg":"Deleted access successfully!"}
+                return {"msg": "Deleted access successfully!"}
             except Exception as e:
                 raise HTTPException(
                     status_code=500, detail="Something went wrong in removing access")
@@ -215,7 +217,7 @@ async def deleteAccess(FID, data: AccessDeleteSchema = Body(default=None), token
 # Rename a file
 
 
-@user.post("/file/{FID}/rename", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
+@user.post("/file/{FID}/rename", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Rename a file", description="Updates name of a file. Can be used only by Owner or Editor of a file")
 async def renameFile(FID, data: FileRenameSchema = Body(default=None), token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner", "Editor"]):
         client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
@@ -234,7 +236,7 @@ async def renameFile(FID, data: FileRenameSchema = Body(default=None), token: st
 # Delete a file
 
 
-@user.delete("/file/{FID}", dependencies=[Depends(jwtBearer())], tags=["File Managment"])
+@user.delete("/file/{FID}", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Delete a file", description="Deletes a file. Can only be performed by owner of the file")
 async def deleteFile(FID, token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner"]):
         client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
