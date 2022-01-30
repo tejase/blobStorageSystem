@@ -1,6 +1,7 @@
 from base64 import decode
 from email.policy import HTTP
 from opcode import opname
+from typing import Optional
 from fastapi import FastAPI, APIRouter, Body, HTTPException, Depends, UploadFile, File, Request
 from models.user import User, UserSchema, UserLoginSchema, FileShareSchema, FileRenameSchema, AccessDeleteSchema
 from config.db import conn
@@ -52,10 +53,6 @@ async def user_signup(user: UserSchema = Body(default=None)):
 
 @user.post("/login", tags=["user"], name="User Login", description="Logs in the user, and returns an authentication token")
 async def user_login(user: UserLoginSchema = Body(default=None)):
-    # if check_user_login(user):
-    #     return signJWT(user.email, user.name)
-    # else:
-    #     raise HTTPException(status_code=401, detail="Invalid Login")
     userData = check_user_login(user)
     if(userData):
         return signJWT(user.email, userData[0]["name"])
@@ -222,7 +219,7 @@ async def deleteAccess(FID, data: AccessDeleteSchema = Body(default=None), token
 # Rename a file
 
 
-@user.post("/file/{FID}/rename", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Rename a file", description="Updates name of a file. Can be used only by Owner or Editor of a file")
+@user.put("/file/{FID}/rename", dependencies=[Depends(jwtBearer())], tags=["File Managment"], name="Rename a file", description="Updates name of a file. Can be used only by Owner or Editor of a file")
 async def renameFile(FID, data: FileRenameSchema = Body(default=None), token: str = Depends(jwtBearer())):
     if(getRole(decodeJWT(token)["userID"], FID) in ["Owner", "Editor"]):
         client = AsyncIOMotorClient(config("mongoDbUri"), 27017)
@@ -266,11 +263,12 @@ def greet():
 
 
 @user.get('/',  dependencies=[Depends(jwtBearer())])
-async def find_all_users(token: str = Depends(jwtBearer())):
-    print("get all usres: ", decodeJWT(token))
-
-    # decode_token = jwt.decode(jwtBearer().credentials, JWT_SECRET, algorithms = [JWT_ALGORITHM])
-    return usersEntity(conn.user.find())
+async def find_all_users(searchString: Optional[str] = None, token: str = Depends(jwtBearer())):
+    if(searchString != None):
+        return usersEntity(conn.user.find({"email": {'$regex': searchString}}))
+    else:
+        return usersEntity(conn.user.find())
+    # return usersEntity(conn.user.find())
 
 
 @user.get('/{id}')

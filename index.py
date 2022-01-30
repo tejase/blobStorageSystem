@@ -29,7 +29,9 @@ In the sharing dialog, you can share files with any registered individuals in Mu
 You can give sharing targets a specific level of permission, based on these defined roles
 
     * Viewer : the user will only be able to view and download the file, but not edit or share anything.
+
     * Editor : the user can view, and edit the file, but not share the file with other users
+    
     * Owner  : this is a special role that is given to the creator of a file. Owners can permanently delete a file, share the file, 
                update role of other users accessing the file, but otherwise have the same permissions as an Editor and Viewer.
     
