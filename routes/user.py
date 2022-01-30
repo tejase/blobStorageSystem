@@ -262,7 +262,7 @@ def greet():
     return {"hello": "world"}
 
 
-@user.get('/',  dependencies=[Depends(jwtBearer())])
+@user.get('/get-all-files',  dependencies=[Depends(jwtBearer())])
 async def find_all_users(searchString: Optional[str] = None, token: str = Depends(jwtBearer())):
     if(searchString != None):
         return usersEntity(conn.user.find({"email": {'$regex': searchString}}))
