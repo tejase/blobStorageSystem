@@ -22,7 +22,7 @@ user = APIRouter()
 
 # cross origin reference
 origins = [
-    'http://localhost:3000/'
+    "*"
 ]
 
 app.add_middleware(
