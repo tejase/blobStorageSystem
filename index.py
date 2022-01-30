@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from routes.user import user
+from fastapi.middleware.cors import CORSMiddleware
 
 description = """
 The murmuring mountain is a cool File storage system. 🚀
@@ -31,7 +32,7 @@ You can give sharing targets a specific level of permission, based on these defi
     * Viewer : the user will only be able to view and download the file, but not edit or share anything.
 
     * Editor : the user can view, and edit the file, but not share the file with other users
-    
+
     * Owner  : this is a special role that is given to the creator of a file. Owners can permanently delete a file, share the file, 
                update role of other users accessing the file, but otherwise have the same permissions as an Editor and Viewer.
     
@@ -43,5 +44,17 @@ app = FastAPI(
         "name": "The Murmuring Mountain",
         "email": "tejase2531@gmail.com",
     },
+)
+# cross origin reference
+origins = [
+    "*"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(user)
