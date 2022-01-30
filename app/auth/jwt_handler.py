@@ -1,4 +1,5 @@
 from ast import Str
+from email.policy import EmailPolicy
 import time
 import jwt
 from decouple import config
@@ -8,19 +9,21 @@ JWT_ALGORITHM = config("algorithm")
 
 #returns generated tokens
 
-def token_response(token: str):
+def token_response(token: str, email: str, name: str):
     return {
-        "access token": token
+        "access token": token,
+        "email": email,
+        "name": name
     }
 
 #used to signing the JWT token
-def signJWT(userID: str):
+def signJWT(email: str, name: str):
     payload = {
-        "userID": userID,
+        "userID": email,
         "expiry": time.time() + 60000
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM) 
-    return token_response(token)
+    return token_response(token,email,name)
 
 def decodeJWT(token: str):
     try:

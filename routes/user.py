@@ -1,4 +1,5 @@
 from base64 import decode
+from email.policy import HTTP
 from opcode import opname
 from fastapi import FastAPI, APIRouter, Body, HTTPException, Depends, UploadFile, File, Request
 from models.user import User, UserSchema, UserLoginSchema, FileShareSchema, FileRenameSchema, AccessDeleteSchema
@@ -42,7 +43,7 @@ async def user_signup(user: UserSchema = Body(default=None)):
         # print(user)
         conn["user"].insert_one(dict(user))
         # print(conn["user"].find())
-        return signJWT(user.email)
+        return signJWT(user.email, user.name)
     else:
         raise HTTPException(status_code=409, detail="Email already exist")
 
@@ -51,10 +52,15 @@ async def user_signup(user: UserSchema = Body(default=None)):
 
 @user.post("/login", tags=["user"], name="User Login", description="Logs in the user, and returns an authentication token")
 async def user_login(user: UserLoginSchema = Body(default=None)):
-    if check_user_login(user):
-        return signJWT(user.email)
+    # if check_user_login(user):
+    #     return signJWT(user.email, user.name)
+    # else:
+    #     raise HTTPException(status_code=401, detail="Invalid Login")
+    userData = check_user_login(user)
+    if(userData):
+        return signJWT(user.email, userData[0]["name"])
     else:
-        raise HTTPException(status_code=401, detail="Invalid Login")
+        raise HTTPException(status_code=401, detail="Invalid Login!")
 
 
 # validating functions for login and signup
@@ -71,9 +77,8 @@ def check_user_login(data: UserLoginSchema):
     print(loginQuery[0]["password"], bcrypt.hashpw(
         data.password.encode("utf-8"), bcrypt.gensalt()))
     if len(loginQuery) == 1 and loginQuery[0]["email"] == data.email and bcrypt.checkpw(data.password.encode('utf-8'), loginQuery[0]["password"]):
-        return True
+        return loginQuery
     else:
-        print("addsa")
         raise HTTPException(
             status_code=401, detail="Invalid login credentials")
 
