@@ -12,16 +12,18 @@ class User(BaseModel):
     email: str
     password: str
 
+
 class UserSchema(BaseModel):
-    name: str = Field(Required = True)
-    email: EmailStr = Field(Required = True)
-    password: str = Field(Required = True)
+    name: str = Field(Required=True)
+    email: EmailStr = Field(Required=True)
+    password: str = Field(Required=True)
+
     class Config:
         the_schema = {
-            "user_demo":{
-                "name":"Tejas",
-                "email":"tej@gmail.com",
-                "password":"somwethin"
+            "user_demo": {
+                "name": "Tejas",
+                "email": "tej@gmail.com",
+                "password": "somwethin"
             }
         }
 
@@ -37,38 +39,45 @@ class UserSchema(BaseModel):
         assert len(v) > 4, 'Password must be minimum 4 characters'
         return v
 
+
 class UserLoginSchema(BaseModel):
     email: EmailStr = Field(default=None)
     password: str = Field(default=None)
+
     class Config:
         the_schema = {
-            "user_demo":{
-                "email":"tej@gmail.com",
-                "password":"somwethin"
+            "user_demo": {
+                "email": "tej@gmail.com",
+                "password": "somwethin"
             }
         }
+
 
 class FileSchema(BaseModel):
     filename: str = Field(default=None)
 
+
 class FileShareSchema(BaseModel):
-    destinationEmail: EmailStr = Field(Required = True)    
-    fileID: str = Field(Required = True)
-    role: str = Field(Required = True)
+    destinationEmail: EmailStr = Field(Required=True)
+    fileID: str = Field(Required=True)
+    role: str = Field(Required=True)
 
     @validator('role')
     def validRoleCheck(cls, v):
-        assert v in ["Owner","Editor","Viewer"], 'Available roles are Owner, Editor and Viewer'
+        assert v in ["Owner", "Editor",
+                     "Viewer"], 'Available roles are Owner, Editor and Viewer'
         return v
 
+
 class FileRenameSchema(BaseModel):
-    newFileName: str = Field(Required = True)
+    newFileName: str = Field(Required=True)
 
     @validator('newFileName')
     def validateNewFileName(cls, v):
         assert len(v) < 25, 'File Name is too long'
         assert v.isalnum(), 'File can only contain alphanumeric characters'
         return v
+
 
 class AccessDeleteSchema(BaseModel):
     email: EmailStr = Field(default=None)
