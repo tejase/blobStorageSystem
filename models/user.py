@@ -2,6 +2,7 @@ from base64 import encode
 from codecs import EncodedFile
 from dataclasses import Field
 from email.policy import default
+from lib2to3.pytree import Base
 from typing_extensions import Required
 from pydantic import BaseModel, Field, EmailStr, validator
 
@@ -68,3 +69,6 @@ class FileRenameSchema(BaseModel):
         assert len(v) < 25, 'File Name is too long'
         assert v.isalnum(), 'File can only contain alphanumeric characters'
         return v
+
+class AccessDeleteSchema(BaseModel):
+    email: EmailStr = Field(default=None)
