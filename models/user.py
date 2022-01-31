@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field, EmailStr, validator
 
 class User(BaseModel):
     name: str
-    email: str
     password: str
 
 
