@@ -10,6 +10,7 @@
 <h3 align="center">Murmuring Mountain</h3>
 
   <p align="center">
+    ( Backend Repository )
     <br />
     <a href="https://murmuring-mountain-24156.herokuapp.com/docs#"><strong>Explore the docs »</strong></a>
     <br />
@@ -53,6 +54,7 @@ The murmuring mountain is a cool Blob File storage system. 🚀
 ### Built With
 
 - [Fast Api](https://fastapi.tiangolo.com/)
+- [Mongo DB](https://www.mongodb.com/)
 - [React.js](https://reactjs.org/)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
@@ -99,7 +101,7 @@ To get a local copy up and running follow these simple steps.
 
 The murmuring mountain is a cool Blob File storage system. 🚀
 
-Users after registering, would be able to upload and save any type of file. The murmuring mountain stores the files as chunks efficiently, thus allowing the user to save even large files. The user can view his/her files any time in his dashboard. The user is also provided options to download, edit and delete the files he saved. The murmuring mountain also provides functionality to share the file with other users. The shared file access can be easily managed and monitored with the role based sharing provided.  
+Users after registering, would be able to upload and save any type of file. The murmuring mountain stores the files as small chunks efficiently, thus allowing the user to save even large files. The user can view his/her files any time in his dashboard. The user is also provided options to download, edit and delete the files he saved. The murmuring mountain also provides functionality to share the file with other users. The shared file access can be easily managed and monitored with the role based sharing provided.  
 
 _For detailed information about functionalities, sharing and permission levels, please refer to the [Documentation](https://murmuring-mountain-24156.herokuapp.com/redoc)_
 
