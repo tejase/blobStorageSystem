@@ -44,6 +44,15 @@ async def getFile(FID, token: str = Depends(jwtBearer())):
         raise HTTPException(
             status_code=403, detail="Not enough role to access this File")
 
+# Get a file with File_id without authentication
+
+
+@file.get("/file/noauth/{FID}", tags=["File Managment"], name="Get a file without authentication", description="Gets file as streaming response, with file_id")
+async def getFileNoauth(FID):
+    client = AsyncIOMotorClient(config("mongoDbUri"), 27107)
+    fs = AsyncIOMotorGridFSBucket(client.database)
+    file = await fs.open_download_stream(ObjectId(FID))
+    return StreamingResponse(file, headers={"Content-Disposition": file.filename}, media_type=file.metadata["contentType"])
 # Get file datails with file id
 
 
@@ -94,8 +103,6 @@ async def shareFile(data: FileShareSchema = Body(default=None), token: str = Dep
     except Exception as e:
         print("Exception in share file: ", e)
         raise HTTPException(status_code=500, detail="Failed to share the file")
-
-# get users sharing a file
 
 
 @file.get("/file/{FID}/users", dependencies=[Depends(jwtBearer())], tags={"File Managment"}, name="Get users having access to a file", description="Returns the list of users having access to a file along with their roles")
